@@ -1,14 +1,17 @@
+mod style;
+
 use std::path::PathBuf;
 
 use iced::image::Handle as ImageHandle;
 use iced::{button, scrollable, slider, text_input};
 use iced::{
-    Button, Checkbox, Color, Column, Container, Element, HorizontalAlignment, Image, Length, Radio,
-    Row, Sandbox, Scrollable, Settings, Slider, Space, Text, TextInput,
+    Align, Button, Checkbox, Color, Column, Container, Element, HorizontalAlignment, Image, Length,
+    Radio, Row, Sandbox, Scrollable, Settings, Slider, Space, Text, TextInput,
 };
 use subprocess::Exec;
 
 struct Easel {
+    theme: style::Theme,
     scroll: scrollable::State,
     src_btn: button::State,
     src_img: Option<PathBuf>,
@@ -18,6 +21,7 @@ struct Easel {
 #[derive(Debug, Clone)]
 enum Event {
     SourcePressed,
+    ThemeChanged(style::Theme),
 }
 
 impl Sandbox for Easel {
@@ -25,6 +29,7 @@ impl Sandbox for Easel {
 
     fn new() -> Self {
         Self {
+            theme: style::Theme::Dark,
             scroll: scrollable::State::new(),
             src_btn: button::State::new(),
             src_img: None,
@@ -49,41 +54,67 @@ impl Sandbox for Easel {
                     self.img_handle = ImageHandle::from_memory(img_bytes);
                 }
             }
+            Event::ThemeChanged(theme) => {
+                self.theme = theme;
+            }
         }
     }
 
     fn view(&mut self) -> Element<Event> {
-        // let mut content = Row::new();
-        let mut content = Column::new();
+        let choose_img = Button::new(
+            &mut self.src_btn,
+            Text::new("Choose image").horizontal_alignment(HorizontalAlignment::Center),
+        )
+        .padding(14)
+        .on_press(Event::SourcePressed)
+        .style(self.theme);
 
-        let a = Column::new()
-            .spacing(20)
-            .width(Length::Fill)
-            .push(Text::new("Image").size(34))
-            .push(Container::new(Image::new(self.img_handle.clone())))
+        let choose_theme = Row::new()
+            .max_width(200)
             .push(
-                Button::new(
-                    &mut self.src_btn,
-                    Text::new("Choose image").horizontal_alignment(HorizontalAlignment::Center),
+                Radio::new(
+                    style::Theme::Dark,
+                    &format!("{:?}", style::Theme::Dark),
+                    Some(self.theme),
+                    Event::ThemeChanged,
                 )
-                .padding(12)
-                .min_width(100)
-                .on_press(Event::SourcePressed),
+                .style(self.theme),
+            )
+            .push(
+                Radio::new(
+                    style::Theme::Light,
+                    &format!("{:?}", style::Theme::Light),
+                    Some(self.theme),
+                    Event::ThemeChanged,
+                )
+                .style(self.theme),
             );
 
-        let b = Column::new()
-            .spacing(20)
+        let header = Row::new()
+            .padding(14)
+            .push(choose_img)
+            .push(Space::with_width(Length::Fill))
+            .push(choose_theme);
+
+        let image = Container::new(Image::new(self.img_handle.clone())).padding(14);
+
+        let content = Column::new()
+            .spacing(10)
+            .align_items(Align::Center)
             .width(Length::Fill)
-            .push(Text::new("Placeholder").size(18));
+            .push(header)
+            .push(image);
 
-        content = content.push(a).push(b);
-
-        let scrollable = Scrollable::new(&mut self.scroll)
-            .push(Container::new(content).width(Length::Fill).center_x());
+        let scrollable = Scrollable::new(&mut self.scroll).push(
+            Container::new(content)
+                .width(Length::Fill)
+                .center_x()
+                .style(self.theme),
+        );
 
         Container::new(scrollable)
             .height(Length::Fill)
-            .center_y()
+            .style(self.theme)
             .into()
     }
 }
