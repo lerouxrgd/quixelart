@@ -5,6 +5,11 @@ authors = ["Romain Leroux <romain@leroux.dev>"]
 edition = "2018"
 
 [dependencies]
-iced = { version = "0.1", features = ["image"] }
+# iced = { version = "0.1", features = ["image"] }
 nfd2 = "0.2"
 subprocess = "0.2"
+
+[dependencies.iced]
+git = "https://github.com/hecrj/iced.git"
+rev = "ff15ebc547"
+features = ["image"]
