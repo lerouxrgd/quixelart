@@ -11,5 +11,5 @@ subprocess = "0.2"
 
 [dependencies.iced]
 git = "https://github.com/hecrj/iced.git"
-rev = "ff15ebc547"
+rev = "faa12382d4"
 features = ["image"]

@@ -30,10 +30,18 @@ struct Easel {
     pixelize: u8,
     kcolors_slider: slider::State,
     kcolors: u8,
+    level_toggle: bool,
     level_black_slider: slider::State,
     level_black: u8,
     level_white_slider: slider::State,
     level_white: u8,
+    modulate_toggle: bool,
+    modulate_brightness_slider: slider::State,
+    modulate_brightness: u8,
+    modulate_saturation_slider: slider::State,
+    modulate_saturation: u8,
+    modulate_hue_slider: slider::State,
+    modulate_hue: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -44,10 +52,18 @@ enum Event {
     SliderPixelizeReleased,
     SliderKcolorsChanged(u8),
     SliderKcolorsReleased,
+    LevelToggled(bool),
     SliderLevelBlackChanged(u8),
     SliderLevelBlackReleased,
     SliderLevelWhiteChanged(u8),
     SliderLevelWhiteReleased,
+    ModulateToggled(bool),
+    SliderModulateBrightnessChanged(u8),
+    SliderModulateBrightnessReleased,
+    SliderModulateSaturationChanged(u8),
+    SliderModulateSaturationReleased,
+    SliderModulateHueChanged(u8),
+    SliderModulateHueReleased,
 }
 
 impl Sandbox for Easel {
@@ -64,10 +80,18 @@ impl Sandbox for Easel {
             pixelize: 80,
             kcolors_slider: slider::State::new(),
             kcolors: 32,
+            level_toggle: true,
             level_black_slider: slider::State::new(),
             level_black: 10,
             level_white_slider: slider::State::new(),
             level_white: 80,
+            modulate_toggle: false,
+            modulate_brightness_slider: slider::State::new(),
+            modulate_brightness: 100,
+            modulate_saturation_slider: slider::State::new(),
+            modulate_saturation: 100,
+            modulate_hue_slider: slider::State::new(),
+            modulate_hue: 100,
         }
     }
 
@@ -90,26 +114,46 @@ impl Sandbox for Easel {
             Event::SliderPixelizeChanged(pixelize) => {
                 self.pixelize = pixelize;
             }
-            Event::SliderPixelizeReleased => {
-                self.make_img();
-            }
             Event::SliderKcolorsChanged(kcolors) => {
                 self.kcolors = kcolors;
             }
-            Event::SliderKcolorsReleased => {
+            Event::SliderPixelizeReleased | Event::SliderKcolorsReleased => {
+                self.make_img();
+            }
+            Event::LevelToggled(level_toggle) => {
+                self.level_toggle = level_toggle;
                 self.make_img();
             }
             Event::SliderLevelBlackChanged(level_black) => {
                 self.level_black = level_black;
             }
-            Event::SliderLevelBlackReleased => {
-                self.make_img();
-            }
             Event::SliderLevelWhiteChanged(level_white) => {
                 self.level_white = level_white;
             }
-            Event::SliderLevelWhiteReleased => {
+            Event::SliderLevelBlackReleased | Event::SliderLevelWhiteReleased => {
+                if self.level_toggle {
+                    self.make_img();
+                }
+            }
+            Event::ModulateToggled(modulate_toggle) => {
+                self.modulate_toggle = modulate_toggle;
                 self.make_img();
+            }
+            Event::SliderModulateBrightnessChanged(modulate_brightness) => {
+                self.modulate_brightness = modulate_brightness;
+            }
+            Event::SliderModulateSaturationChanged(modulate_saturation) => {
+                self.modulate_saturation = modulate_saturation;
+            }
+            Event::SliderModulateHueChanged(modulate_hue) => {
+                self.modulate_hue = modulate_hue;
+            }
+            Event::SliderModulateBrightnessReleased
+            | Event::SliderModulateSaturationReleased
+            | Event::SliderModulateHueReleased => {
+                if self.modulate_toggle {
+                    self.make_img();
+                }
             }
         }
     }
@@ -131,6 +175,7 @@ impl Sandbox for Easel {
                     Some(self.theme),
                     Event::ThemeChanged,
                 )
+                .size(20)
                 .spacing(5)
                 .style(self.theme),
             )
@@ -142,6 +187,7 @@ impl Sandbox for Easel {
                     Some(self.theme),
                     Event::ThemeChanged,
                 )
+                .size(20)
                 .spacing(5)
                 .style(self.theme),
             );
@@ -239,11 +285,94 @@ impl Sandbox for Easel {
                     .font(FONT_PIX_L),
             );
 
-        let levels = Row::new()
-            .padding(PADDING)
+        let mut levels = Row::new().padding(PADDING).spacing(10).push(
+            Checkbox::new(self.level_toggle, "Levels", Event::LevelToggled)
+                .width(Length::Units(name_width))
+                .style(self.theme),
+        );
+
+        if self.level_toggle {
+            levels = levels.push(Column::new().push(level_black).push(level_white));
+        } else {
+            levels = levels.push(Space::with_width(Length::Fill));
+        }
+
+        let modulate_brightness = Row::new()
             .spacing(10)
-            .push(Text::new("Levels").width(Length::Units(name_width)))
-            .push(Column::new().push(level_black).push(level_white));
+            .push(Text::new("brightness").width(Length::Units(name_width)))
+            .push(
+                Slider::new(
+                    &mut self.modulate_brightness_slider,
+                    0..=200,
+                    self.modulate_brightness,
+                    Event::SliderModulateBrightnessChanged,
+                )
+                .on_release(Event::SliderModulateBrightnessReleased)
+                .width(Length::Fill)
+                .style(self.theme),
+            )
+            .push(
+                Text::new(self.modulate_brightness.to_string())
+                    .width(Length::Units(val_width))
+                    .font(FONT_PIX_L),
+            );
+
+        let modulate_saturation = Row::new()
+            .spacing(10)
+            .push(Text::new("saturation").width(Length::Units(name_width)))
+            .push(
+                Slider::new(
+                    &mut self.modulate_saturation_slider,
+                    0..=200,
+                    self.modulate_saturation,
+                    Event::SliderModulateSaturationChanged,
+                )
+                .on_release(Event::SliderModulateSaturationReleased)
+                .width(Length::Fill)
+                .style(self.theme),
+            )
+            .push(
+                Text::new(self.modulate_saturation.to_string())
+                    .width(Length::Units(val_width))
+                    .font(FONT_PIX_L),
+            );
+
+        let modulate_hue = Row::new()
+            .spacing(10)
+            .push(Text::new("hue").width(Length::Units(name_width)))
+            .push(
+                Slider::new(
+                    &mut self.modulate_hue_slider,
+                    0..=200,
+                    self.modulate_hue,
+                    Event::SliderModulateHueChanged,
+                )
+                .on_release(Event::SliderModulateHueReleased)
+                .width(Length::Fill)
+                .style(self.theme),
+            )
+            .push(
+                Text::new(self.modulate_hue.to_string())
+                    .width(Length::Units(val_width))
+                    .font(FONT_PIX_L),
+            );
+
+        let mut modulate = Row::new().padding(PADDING).spacing(10).push(
+            Checkbox::new(self.modulate_toggle, "Modulate", Event::ModulateToggled)
+                .width(Length::Units(name_width))
+                .style(self.theme),
+        );
+
+        if self.modulate_toggle {
+            modulate = modulate.push(
+                Column::new()
+                    .push(modulate_brightness)
+                    .push(modulate_saturation)
+                    .push(modulate_hue),
+            );
+        } else {
+            modulate = modulate.push(Space::with_width(Length::Fill))
+        }
 
         let content = Column::new()
             .spacing(5)
@@ -253,7 +382,8 @@ impl Sandbox for Easel {
             .push(image)
             .push(pixelize)
             .push(kcolors)
-            .push(levels);
+            .push(levels)
+            .push(modulate);
 
         let scrollable = Scrollable::new(&mut self.scroll).push(
             Container::new(content)
@@ -276,36 +406,54 @@ impl Easel {
             img_handle,
             pixelize,
             kcolors,
+            level_toggle,
             level_black,
             level_white,
+            modulate_toggle,
+            modulate_brightness,
+            modulate_saturation,
+            modulate_hue,
             ..
         } = self;
 
         if let Some(img_path) = img_path.as_ref().map(PathBuf::as_path) {
-            let img_bytes = (Exec::cmd("magick")
+            let mut downsize = Exec::cmd("magick")
                 .arg("convert")
                 .arg(img_path.to_string_lossy().as_ref())
                 .arg("-resize")
-                .arg(format!("{}%", 100 - *pixelize))
-                .arg("-level")
-                .arg(format!("{}%,{}%", level_black, level_white))
+                .arg(format!("{}%", 100 - *pixelize));
+
+            if *level_toggle {
+                downsize = downsize
+                    .arg("-level")
+                    .arg(format!("{}%,{}%", level_black, level_white));
+            }
+
+            if *modulate_toggle {
+                downsize = downsize.arg("-modulate").arg(format!(
+                    "{},{},{}",
+                    modulate_brightness, modulate_saturation, modulate_hue
+                ))
+            }
+
+            downsize = downsize.arg("-");
+
+            let kmeans = Exec::cmd("magick")
                 .arg("-")
-                | Exec::cmd("magick")
-                    .arg("-")
-                    .arg("-kmeans")
-                    .arg(kcolors.to_string())
-                    .arg("-")
-                | Exec::cmd("magick")
-                    .arg("convert")
-                    .arg("-")
-                    .arg("-filter")
-                    .arg("point")
-                    .arg("-resize")
-                    .arg(format!("{}%", 1.0 / (100 - *pixelize) as f32 * 10_000.0))
-                    .arg("-"))
-            .capture()
-            .unwrap()
-            .stdout;
+                .arg("-kmeans")
+                .arg(kcolors.to_string())
+                .arg("-");
+
+            let upsize = Exec::cmd("magick")
+                .arg("convert")
+                .arg("-")
+                .arg("-filter")
+                .arg("point")
+                .arg("-resize")
+                .arg(format!("{}%", 1.0 / (100 - *pixelize) as f32 * 10_000.0))
+                .arg("-");
+
+            let img_bytes = (downsize | kmeans | upsize).capture().unwrap().stdout;
 
             *img_handle = ImageHandle::from_memory(img_bytes);
         }
