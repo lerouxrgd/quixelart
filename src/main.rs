@@ -147,7 +147,7 @@ impl Sandbox for QuixelArt {
         };
 
         let (mut panes, pane) = pane_grid::State::new(easel_content);
-        panes.split(pane_grid::Axis::Horizontal, &pane, palette_content);
+        panes.split(pane_grid::Axis::Vertical, &pane, palette_content);
 
         Self {
             panes,
@@ -266,7 +266,7 @@ impl Sandbox for QuixelArt {
         let name_width = 120;
         let val_width = 50;
 
-        let pane_grid = PaneGrid::new(&mut self.panes, |_pane, content, _focus| match content {
+        let pane_grid = PaneGrid::new(&mut self.panes, |_pane, content| match content {
             Content::Easel { easel, state } => {
                 let image =
                     Container::new(Image::new(easel.borrow().img_handle.clone())).padding(PADDING);
@@ -277,18 +277,19 @@ impl Sandbox for QuixelArt {
                     .width(Length::Fill)
                     .push(image);
 
-                let scrollable = Scrollable::new(&mut state.scroll).push(
-                    Container::new(content)
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y()
-                        .style(theme),
-                );
+                // let scrollable = Scrollable::new(&mut state.scroll).push(
+                //     content
+                //     // Container::new(content)
+                //     //     .width(Length::Fill)
+                //     //     .height(Length::Fill)
+                //     //     .center_x()
+                //     //     .center_y()
+                //     //     .style(theme),
+                // );
 
                 let title_bar = pane_grid::TitleBar::new("Easel").padding(10);
 
-                pane_grid::Content::new(scrollable).title_bar(title_bar)
+                pane_grid::Content::new(content).title_bar(title_bar)
             }
             Content::Palette { palette, state } => {
                 let theme = palette.borrow().theme.borrow().clone();
@@ -480,11 +481,12 @@ impl Sandbox for QuixelArt {
                     .push(modulate);
 
                 let scrollable = Scrollable::new(&mut state.scroll).push(
-                    Container::new(content)
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .style(theme),
+                    content
+                    // Container::new(content)
+                    //     .width(Length::Fill)
+                    //     .height(Length::Fill)
+                    //     .center_x()
+                    //     .style(theme),
                 );
 
                 pane_grid::Content::new(scrollable).title_bar(title_bar)
@@ -581,5 +583,5 @@ fn main() {
         settings.default_font = Some(bytes);
     }
 
-    QuixelArt::run(settings)
+    QuixelArt::run(settings).unwrap();
 }
