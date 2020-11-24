@@ -469,5 +469,5 @@ fn main() {
         settings.default_font = Some(bytes);
     }
 
-    Easel::run(settings)
+    Easel::run(settings).unwrap();
 }
