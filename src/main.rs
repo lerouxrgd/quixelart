@@ -3,10 +3,10 @@ mod style;
 use std::path::PathBuf;
 
 use iced::image::Handle as ImageHandle;
-use iced::{button, scrollable, slider};
+use iced::{button, pick_list, slider};
 use iced::{
-    Align, Button, Checkbox, Color, Column, Container, Element, Font, HorizontalAlignment, Image,
-    Length, Radio, Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
+    Align, Button, Checkbox, Column, Container, Element, Font, Image, Length, PickList, Row,
+    Sandbox, Settings, Slider, Space, Text,
 };
 use subprocess::Exec;
 
@@ -22,7 +22,7 @@ const FONT_PIX_L: Font = Font::External {
 
 struct Easel {
     theme: style::Theme,
-    scroll: scrollable::State,
+    pick_theme: pick_list::State<style::Theme>,
     src_button: button::State,
     img_path: Option<PathBuf>,
     img_handle: ImageHandle,
@@ -72,7 +72,7 @@ impl Sandbox for Easel {
     fn new() -> Self {
         Self {
             theme: style::Theme::Dark,
-            scroll: scrollable::State::new(),
+            pick_theme: pick_list::State::default(),
             src_button: button::State::new(),
             img_path: None,
             img_handle: ImageHandle::from_memory(vec![]),
@@ -159,38 +159,19 @@ impl Sandbox for Easel {
     }
 
     fn view(&mut self) -> Element<Event> {
-        const PADDING: u16 = 14;
+        const PADDING: u16 = 5;
 
         let choose_img = Button::new(&mut self.src_button, Text::new("Choose image"))
-            .padding(PADDING)
             .on_press(Event::SourcePressed)
             .style(self.theme);
 
-        let choose_theme = Row::new()
-            .max_width(200)
-            .push(
-                Radio::new(
-                    style::Theme::Dark,
-                    &format!("{:?}", style::Theme::Dark),
-                    Some(self.theme),
-                    Event::ThemeChanged,
-                )
-                .size(20)
-                .spacing(5)
-                .style(self.theme),
-            )
-            .push(Space::with_width(Length::Units(8)))
-            .push(
-                Radio::new(
-                    style::Theme::Light,
-                    &format!("{:?}", style::Theme::Light),
-                    Some(self.theme),
-                    Event::ThemeChanged,
-                )
-                .size(20)
-                .spacing(5)
-                .style(self.theme),
-            );
+        let choose_theme = PickList::new(
+            &mut self.pick_theme,
+            &style::Theme::ALL[..],
+            Some(self.theme),
+            Event::ThemeChanged,
+        )
+        .style(self.theme);
 
         let header = Row::new()
             .padding(PADDING)
@@ -198,15 +179,14 @@ impl Sandbox for Easel {
             .push(Space::with_width(Length::Fill))
             .push(choose_theme);
 
-        let image = Container::new(Image::new(self.img_handle.clone())).padding(PADDING);
-
-        let name_width = 120;
+        let main_name_width = 115;
+        let sub_name_width = 105;
         let val_width = 50;
 
         let pixelize = Row::new()
             .padding(PADDING)
             .spacing(10)
-            .push(Text::new("Pixelize").width(Length::Units(name_width)))
+            .push(Text::new("Pixelize").width(Length::Units(main_name_width)))
             .push(
                 Slider::new(
                     &mut self.pixelize_slider,
@@ -227,7 +207,7 @@ impl Sandbox for Easel {
         let kcolors = Row::new()
             .padding(PADDING)
             .spacing(10)
-            .push(Text::new("Colors").width(Length::Units(name_width)))
+            .push(Text::new("Colors").width(Length::Units(main_name_width)))
             .push(
                 Slider::new(
                     &mut self.kcolors_slider,
@@ -247,7 +227,7 @@ impl Sandbox for Easel {
 
         let level_black = Row::new()
             .spacing(10)
-            .push(Text::new("black").width(Length::Units(name_width)))
+            .push(Text::new("black").width(Length::Units(sub_name_width)))
             .push(
                 Slider::new(
                     &mut self.level_black_slider,
@@ -267,7 +247,7 @@ impl Sandbox for Easel {
 
         let level_white = Row::new()
             .spacing(10)
-            .push(Text::new("white").width(Length::Units(name_width)))
+            .push(Text::new("white").width(Length::Units(sub_name_width)))
             .push(
                 Slider::new(
                     &mut self.level_white_slider,
@@ -287,7 +267,8 @@ impl Sandbox for Easel {
 
         let mut levels = Row::new().padding(PADDING).spacing(10).push(
             Checkbox::new(self.level_toggle, "Levels", Event::LevelToggled)
-                .width(Length::Units(name_width))
+                .width(Length::Units(main_name_width))
+                .spacing(10)
                 .style(self.theme),
         );
 
@@ -299,7 +280,7 @@ impl Sandbox for Easel {
 
         let modulate_brightness = Row::new()
             .spacing(10)
-            .push(Text::new("brightness").width(Length::Units(name_width)))
+            .push(Text::new("brightness").width(Length::Units(sub_name_width)))
             .push(
                 Slider::new(
                     &mut self.modulate_brightness_slider,
@@ -319,7 +300,7 @@ impl Sandbox for Easel {
 
         let modulate_saturation = Row::new()
             .spacing(10)
-            .push(Text::new("saturation").width(Length::Units(name_width)))
+            .push(Text::new("saturation").width(Length::Units(sub_name_width)))
             .push(
                 Slider::new(
                     &mut self.modulate_saturation_slider,
@@ -339,7 +320,7 @@ impl Sandbox for Easel {
 
         let modulate_hue = Row::new()
             .spacing(10)
-            .push(Text::new("hue").width(Length::Units(name_width)))
+            .push(Text::new("hue").width(Length::Units(sub_name_width)))
             .push(
                 Slider::new(
                     &mut self.modulate_hue_slider,
@@ -359,7 +340,8 @@ impl Sandbox for Easel {
 
         let mut modulate = Row::new().padding(PADDING).spacing(10).push(
             Checkbox::new(self.modulate_toggle, "Modulate", Event::ModulateToggled)
-                .width(Length::Units(name_width))
+                .width(Length::Units(main_name_width))
+                .spacing(10)
                 .style(self.theme),
         );
 
@@ -374,25 +356,25 @@ impl Sandbox for Easel {
             modulate = modulate.push(Space::with_width(Length::Fill))
         }
 
-        let content = Column::new()
+        let controls = Column::new()
             .spacing(5)
             .align_items(Align::Center)
-            .width(Length::Fill)
+            .width(Length::Units(420))
             .push(header)
-            .push(image)
             .push(pixelize)
             .push(kcolors)
             .push(levels)
             .push(modulate);
 
-        let scrollable = Scrollable::new(&mut self.scroll).push(
-            Container::new(content)
-                .width(Length::Fill)
-                .center_x()
-                .style(self.theme),
-        );
+        let image = Container::new(Image::new(self.img_handle.clone()))
+            .padding(PADDING)
+            .align_x(Align::Center)
+            .align_y(Align::Center)
+            .width(Length::Fill);
 
-        Container::new(scrollable)
+        let content = Row::new().padding(PADDING).push(controls).push(image);
+
+        Container::new(content)
             .height(Length::Fill)
             .style(self.theme)
             .into()
