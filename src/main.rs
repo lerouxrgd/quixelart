@@ -3,10 +3,10 @@ mod style;
 use std::path::PathBuf;
 
 use iced::image::Handle as ImageHandle;
-use iced::{button, pick_list, slider};
+use iced::{button, pick_list, scrollable, slider};
 use iced::{
-    Align, Button, Checkbox, Column, Container, Element, Font, Image, Length, PickList, Row,
-    Sandbox, Settings, Slider, Space, Text,
+    Align, Button, Checkbox, Column, Container, Element, Font, HorizontalAlignment, Image, Length,
+    PickList, Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
 };
 use subprocess::Exec;
 
@@ -20,12 +20,20 @@ const FONT_PIX_L: Font = Font::External {
     bytes: include_bytes!("../fonts/PIX-L.ttf"),
 };
 
+const FONT_ICONS: Font = Font::External {
+    name: "Pixel",
+    bytes: include_bytes!("../fonts/icons.ttf"),
+};
+
 struct Easel {
     theme: style::Theme,
-    pick_theme: pick_list::State<style::Theme>,
+    layout: Layout,
     src_button: button::State,
+    layout_button: button::State,
+    pick_theme: pick_list::State<style::Theme>,
     img_path: Option<PathBuf>,
     img_handle: ImageHandle,
+    scroll: scrollable::State,
     pixelize_slider: slider::State,
     pixelize: u8,
     kcolors_slider: slider::State,
@@ -47,6 +55,7 @@ struct Easel {
 #[derive(Debug, Clone)]
 enum Event {
     SourcePressed,
+    LayoutPressed,
     ThemeChanged(style::Theme),
     SliderPixelizeChanged(u8),
     SliderPixelizeReleased,
@@ -66,16 +75,34 @@ enum Event {
     SliderModulateHueReleased,
 }
 
+#[derive(Debug, Clone)]
+enum Layout {
+    Columns,
+    Rows,
+}
+
+impl Layout {
+    fn swap(&mut self) {
+        match self {
+            Self::Columns => *self = Self::Rows,
+            Self::Rows => *self = Self::Columns,
+        }
+    }
+}
+
 impl Sandbox for Easel {
     type Message = Event;
 
     fn new() -> Self {
         Self {
             theme: style::Theme::Dark,
-            pick_theme: pick_list::State::default(),
+            layout: Layout::Columns,
             src_button: button::State::new(),
+            layout_button: button::State::new(),
+            pick_theme: pick_list::State::default(),
             img_path: None,
             img_handle: ImageHandle::from_memory(vec![]),
+            scroll: scrollable::State::new(),
             pixelize_slider: slider::State::new(),
             pixelize: 80,
             kcolors_slider: slider::State::new(),
@@ -103,6 +130,9 @@ impl Sandbox for Easel {
         match evt {
             Event::ThemeChanged(theme) => {
                 self.theme = theme;
+            }
+            Event::LayoutPressed => {
+                self.layout.swap();
             }
             Event::SourcePressed => {
                 self.img_path = match nfd2::open_file_dialog(None, None).unwrap() {
@@ -173,11 +203,19 @@ impl Sandbox for Easel {
         )
         .style(self.theme);
 
+        let change_layout = Button::new(&mut self.layout_button, layout_icon(&self.layout))
+            .on_press(Event::LayoutPressed)
+            .style(self.theme);
+
         let header = Row::new()
             .padding(PADDING)
+            .spacing(5)
+            .align_items(Align::Center)
             .push(choose_img)
             .push(Space::with_width(Length::Fill))
-            .push(choose_theme);
+            .push(change_layout)
+            .push(choose_theme)
+            .push(Space::with_width(Length::Units(5)));
 
         let main_name_width = 115;
         let sub_name_width = 105;
@@ -356,10 +394,15 @@ impl Sandbox for Easel {
             modulate = modulate.push(Space::with_width(Length::Fill))
         }
 
+        let controls_length = match self.layout {
+            Layout::Columns => Length::Units(420),
+            Layout::Rows => Length::Fill,
+        };
+
         let controls = Column::new()
             .spacing(5)
             .align_items(Align::Center)
-            .width(Length::Units(420))
+            .width(controls_length)
             .push(header)
             .push(pixelize)
             .push(kcolors)
@@ -372,12 +415,27 @@ impl Sandbox for Easel {
             .align_y(Align::Center)
             .width(Length::Fill);
 
-        let content = Row::new().padding(PADDING).push(controls).push(image);
+        let content = match self.layout {
+            Layout::Columns => {
+                let content = Row::new().padding(PADDING).push(controls).push(image);
+                Container::new(content)
+            }
+            Layout::Rows => {
+                let content = Column::new().padding(PADDING).push(image).push(controls);
+                Container::new(content)
+            }
+        };
+        let content = Scrollable::new(&mut self.scroll).push(content);
 
-        Container::new(content)
-            .height(Length::Fill)
-            .style(self.theme)
-            .into()
+        Container::new(
+            Column::new()
+                .push(content)
+                .push(Space::new(Length::Fill, Length::Fill)),
+        )
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .style(self.theme)
+        .into()
     }
 }
 
@@ -440,6 +498,20 @@ impl Easel {
             *img_handle = ImageHandle::from_memory(img_bytes);
         }
     }
+}
+
+fn layout_icon(layout: &Layout) -> Text {
+    let icon = match layout {
+        Layout::Columns => '\u{f152}',
+        Layout::Rows => '\u{f151}',
+    };
+
+    Text::new(&icon.to_string())
+        .font(FONT_ICONS)
+        .width(Length::Units(20))
+        .horizontal_alignment(HorizontalAlignment::Center)
+        .vertical_alignment(VerticalAlignment::Center)
+        .size(20)
 }
 
 fn main() {
