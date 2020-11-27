@@ -3,10 +3,10 @@ mod style;
 use std::path::PathBuf;
 
 use iced::image::Handle as ImageHandle;
-use iced::{button, pick_list, scrollable, slider};
+use iced::{button, scrollable, slider};
 use iced::{
     Align, Button, Checkbox, Column, Container, Element, Font, HorizontalAlignment, Image, Length,
-    PickList, Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
+    Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
 };
 use subprocess::Exec;
 
@@ -30,7 +30,7 @@ struct Easel {
     layout: Layout,
     src_button: button::State,
     layout_button: button::State,
-    pick_theme: pick_list::State<style::Theme>,
+    theme_button: button::State,
     img_path: Option<PathBuf>,
     img_handle: ImageHandle,
     scroll: scrollable::State,
@@ -56,7 +56,7 @@ struct Easel {
 enum Event {
     SourcePressed,
     LayoutPressed,
-    ThemeChanged(style::Theme),
+    ThemePressed,
     SliderPixelizeChanged(u8),
     SliderPixelizeReleased,
     SliderKcolorsChanged(u8),
@@ -99,7 +99,7 @@ impl Sandbox for Easel {
             layout: Layout::Columns,
             src_button: button::State::new(),
             layout_button: button::State::new(),
-            pick_theme: pick_list::State::default(),
+            theme_button: button::State::new(),
             img_path: None,
             img_handle: ImageHandle::from_memory(vec![]),
             scroll: scrollable::State::new(),
@@ -128,11 +128,11 @@ impl Sandbox for Easel {
 
     fn update(&mut self, evt: Event) {
         match evt {
-            Event::ThemeChanged(theme) => {
-                self.theme = theme;
-            }
             Event::LayoutPressed => {
                 self.layout.swap();
+            }
+            Event::ThemePressed => {
+                self.theme.swap();
             }
             Event::SourcePressed => {
                 self.img_path = match nfd2::open_file_dialog(None, None).unwrap() {
@@ -195,13 +195,9 @@ impl Sandbox for Easel {
             .on_press(Event::SourcePressed)
             .style(self.theme);
 
-        let choose_theme = PickList::new(
-            &mut self.pick_theme,
-            &style::Theme::ALL[..],
-            Some(self.theme),
-            Event::ThemeChanged,
-        )
-        .style(self.theme);
+        let change_theme = Button::new(&mut self.theme_button, theme_icon(&self.theme))
+            .on_press(Event::ThemePressed)
+            .style(self.theme);
 
         let change_layout = Button::new(&mut self.layout_button, layout_icon(&self.layout))
             .on_press(Event::LayoutPressed)
@@ -214,7 +210,7 @@ impl Sandbox for Easel {
             .push(choose_img)
             .push(Space::with_width(Length::Fill))
             .push(change_layout)
-            .push(choose_theme)
+            .push(change_theme)
             .push(Space::with_width(Length::Units(5)));
 
         let main_name_width = 115;
@@ -508,10 +504,26 @@ fn layout_icon(layout: &Layout) -> Text {
 
     Text::new(&icon.to_string())
         .font(FONT_ICONS)
+        .height(Length::Units(20))
         .width(Length::Units(20))
         .horizontal_alignment(HorizontalAlignment::Center)
         .vertical_alignment(VerticalAlignment::Center)
         .size(20)
+}
+
+fn theme_icon(theme: &style::Theme) -> Text {
+    let (icon, size) = match theme {
+        style::Theme::Dark => ('\u{e800}', 30),
+        style::Theme::Light => ('\u{e801}', 20),
+    };
+
+    Text::new(&icon.to_string())
+        .font(FONT_ICONS)
+        .height(Length::Units(20))
+        .width(Length::Units(20))
+        .horizontal_alignment(HorizontalAlignment::Center)
+        .vertical_alignment(VerticalAlignment::Center)
+        .size(size)
 }
 
 fn main() {

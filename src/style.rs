@@ -10,6 +10,13 @@ pub enum Theme {
 
 impl Theme {
     pub const ALL: [Theme; 2] = [Theme::Light, Theme::Dark];
+
+    pub fn swap(&mut self) {
+        match self {
+            Self::Dark => *self = Self::Light,
+            Self::Light => *self = Self::Dark,
+        }
+    }
 }
 
 impl Default for Theme {
