@@ -421,7 +421,9 @@ impl Sandbox for Easel {
                 Container::new(content)
             }
         };
-        let content = Scrollable::new(&mut self.scroll).push(content);
+        let content = Scrollable::new(&mut self.scroll)
+            .scroller_width(5)
+            .push(content);
 
         Container::new(
             Column::new()
