@@ -1,5 +1,7 @@
 mod style;
 
+use std::fs;
+use std::io::prelude::*;
 use std::path::PathBuf;
 
 use iced::image::Handle as ImageHandle;
@@ -8,6 +10,7 @@ use iced::{
     Align, Button, Checkbox, Column, Container, Element, Font, HorizontalAlignment, Image, Length,
     Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
 };
+use iced_native::widget::image::Data as ImageData;
 use subprocess::Exec;
 
 const FONT_PIXEL: Font = Font::External {
@@ -29,9 +32,9 @@ struct Easel {
     theme: style::Theme,
     layout: Layout,
     src_button: button::State,
+    src_path: Option<PathBuf>,
     layout_button: button::State,
     theme_button: button::State,
-    img_path: Option<PathBuf>,
     img_handle: ImageHandle,
     scroll: scrollable::State,
     pixelize_slider: slider::State,
@@ -50,6 +53,9 @@ struct Easel {
     modulate_saturation: u8,
     modulate_hue_slider: slider::State,
     modulate_hue: u8,
+    save_button: button::State,
+    save_path: Option<PathBuf>,
+    save_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +79,7 @@ enum Event {
     SliderModulateSaturationReleased,
     SliderModulateHueChanged(u8),
     SliderModulateHueReleased,
+    SavePressed,
 }
 
 #[derive(Debug, Clone)]
@@ -98,9 +105,9 @@ impl Sandbox for Easel {
             theme: style::Theme::Dark,
             layout: Layout::Columns,
             src_button: button::State::new(),
+            src_path: None,
             layout_button: button::State::new(),
             theme_button: button::State::new(),
-            img_path: None,
             img_handle: ImageHandle::from_memory(vec![]),
             scroll: scrollable::State::new(),
             pixelize_slider: slider::State::new(),
@@ -119,9 +126,13 @@ impl Sandbox for Easel {
             modulate_saturation: 100,
             modulate_hue_slider: slider::State::new(),
             modulate_hue: 100,
+            save_button: button::State::new(),
+            save_path: None,
+            save_file: None,
         }
     }
 
+    /// TODO: use `save_file`
     fn title(&self) -> String {
         "QuixelArt".into()
     }
@@ -135,10 +146,18 @@ impl Sandbox for Easel {
                 self.theme.swap();
             }
             Event::SourcePressed => {
-                self.img_path = match nfd2::open_file_dialog(None, None).unwrap() {
+                let file_path = match nfd2::open_file_dialog(None, None).unwrap() {
                     nfd2::Response::Okay(file_path) => Some(file_path),
                     nfd2::Response::OkayMultiple(_) | nfd2::Response::Cancel => None,
                 };
+                self.src_path = file_path.clone();
+
+                if let Some(mut file_path) = file_path {
+                    file_path.pop();
+                    self.save_path = Some(file_path);
+                    self.save_file = None;
+                }
+
                 self.make_img();
             }
             Event::SliderPixelizeChanged(pixelize) => {
@@ -183,6 +202,40 @@ impl Sandbox for Easel {
             | Event::SliderModulateHueReleased => {
                 if self.modulate_toggle {
                     self.make_img();
+                }
+            }
+            Event::SavePressed => {
+                if self.save_file.is_none() {
+                    let default_path = self.save_path.as_ref().map(PathBuf::as_path);
+
+                    let save_file = match nfd2::open_save_dialog(None, default_path) {
+                        Ok(nfd2::Response::Okay(file_path)) => Some(file_path),
+                        _ => None,
+                    };
+
+                    save_file.as_ref().map(|f| {
+                        let mut save_path = f.clone();
+                        save_path.pop();
+                        self.save_path = Some(save_path);
+                    });
+
+                    self.save_file = save_file;
+                }
+
+                let save_wtr = self.save_file.as_ref().map(|f| {
+                    fs::OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .create(true)
+                        .open(f)
+                        .ok()
+                });
+
+                match (save_wtr, &self.img_handle.data()) {
+                    (Some(Some(ref mut save_wtr)), ImageData::Bytes(bytes)) => {
+                        save_wtr.write_all(bytes).ok();
+                    }
+                    _ => (),
                 }
             }
         }
@@ -395,6 +448,12 @@ impl Sandbox for Easel {
             Layout::Rows => Length::Fill,
         };
 
+        let mut save_img =
+            Button::new(&mut self.save_button, Text::new("Save image")).style(self.theme);
+        if self.src_path.is_some() {
+            save_img = save_img.on_press(Event::SavePressed);
+        }
+
         let controls = Column::new()
             .spacing(5)
             .align_items(Align::Center)
@@ -403,7 +462,8 @@ impl Sandbox for Easel {
             .push(pixelize)
             .push(kcolors)
             .push(levels)
-            .push(modulate);
+            .push(modulate)
+            .push(save_img);
 
         let image = Container::new(Image::new(self.img_handle.clone()))
             .padding(PADDING)
@@ -440,7 +500,7 @@ impl Sandbox for Easel {
 impl Easel {
     fn make_img(&mut self) {
         let Easel {
-            img_path,
+            src_path,
             img_handle,
             pixelize,
             kcolors,
@@ -454,10 +514,10 @@ impl Easel {
             ..
         } = self;
 
-        if let Some(img_path) = img_path.as_ref().map(PathBuf::as_path) {
+        if let Some(src_path) = src_path.as_ref().map(PathBuf::as_path) {
             let mut downsize = Exec::cmd("magick")
                 .arg("convert")
-                .arg(img_path.to_string_lossy().as_ref())
+                .arg(src_path.to_string_lossy().as_ref())
                 .arg("-resize")
                 .arg(format!("{}%", 100 - *pixelize));
 
