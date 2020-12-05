@@ -132,9 +132,11 @@ impl Sandbox for Easel {
         }
     }
 
-    /// TODO: use `save_file`
     fn title(&self) -> String {
-        "QuixelArt".into()
+        match self.save_file.as_ref().map(|f| f.file_name()) {
+            Some(Some(file_name)) => format!("QuixelArt - {}", file_name.to_string_lossy()),
+            _ => "QuixelArt".into(),
+        }
     }
 
     fn update(&mut self, evt: Event) {
