@@ -1,5 +1,6 @@
 mod style;
 
+use std::error::Error;
 use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -156,9 +157,9 @@ impl Sandbox for Easel {
                 self.theme.swap();
             }
             Event::SourcePressed => {
-                let file_path = match nfd2::open_file_dialog(None, None).unwrap() {
-                    nfd2::Response::Okay(file_path) => Some(file_path),
-                    nfd2::Response::OkayMultiple(_) | nfd2::Response::Cancel => None,
+                let file_path = match nfd2::open_file_dialog(None, None) {
+                    Ok(nfd2::Response::Okay(file_path)) => Some(file_path),
+                    _ => None,
                 };
                 self.src_path = file_path.clone();
 
@@ -530,6 +531,7 @@ impl Easel {
             modulate_brightness,
             modulate_saturation,
             modulate_hue,
+            saved,
             ..
         } = self;
 
@@ -570,10 +572,13 @@ impl Easel {
                 .arg(format!("{}%", 1.0 / (100 - *pixelize) as f32 * 10_000.0))
                 .arg("-");
 
-            let img_bytes = (downsize | kmeans | upsize).capture().unwrap().stdout;
+            let pipeline = (downsize | kmeans | upsize).capture();
 
-            *img_handle = ImageHandle::from_memory(img_bytes);
-            self.saved = false;
+            if let Ok(pipeline) = pipeline {
+                let img_bytes = pipeline.stdout;
+                *img_handle = ImageHandle::from_memory(img_bytes);
+                *saved = false;
+            }
         }
     }
 }
@@ -618,7 +623,7 @@ fn theme_icon(theme: &style::Theme) -> Text {
     icon(code, size)
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
 
     settings.default_text_size = 18;
@@ -627,5 +632,7 @@ fn main() {
         settings.default_font = Some(bytes);
     }
 
-    Easel::run(settings).unwrap();
+    Easel::run(settings)?;
+
+    Ok(())
 }
