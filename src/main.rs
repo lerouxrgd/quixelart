@@ -56,6 +56,7 @@ struct Easel {
     save_button: button::State,
     save_path: Option<PathBuf>,
     save_file: Option<PathBuf>,
+    saved: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -129,12 +130,16 @@ impl Sandbox for Easel {
             save_button: button::State::new(),
             save_path: None,
             save_file: None,
+            saved: false,
         }
     }
 
     fn title(&self) -> String {
         match self.save_file.as_ref().map(|f| f.file_name()) {
-            Some(Some(file_name)) => format!("QuixelArt - {}", file_name.to_string_lossy()),
+            Some(Some(file_name)) => {
+                let saved = if self.saved { " " } else { "*" };
+                format!("QuixelArt - {} {}", file_name.to_string_lossy(), saved)
+            }
             _ => "QuixelArt".into(),
         }
     }
@@ -235,7 +240,9 @@ impl Sandbox for Easel {
 
                 match (save_wtr, &self.img_handle.data()) {
                     (Some(Some(ref mut save_wtr)), ImageData::Bytes(bytes)) => {
-                        save_wtr.write_all(bytes).ok();
+                        if save_wtr.write_all(bytes).is_ok() {
+                            self.saved = true;
+                        }
                     }
                     _ => (),
                 }
@@ -246,9 +253,14 @@ impl Sandbox for Easel {
     fn view(&mut self) -> Element<Event> {
         const PADDING: u16 = 5;
 
-        let choose_img = Button::new(&mut self.src_button, Text::new("Choose image"))
+        let choose_img = Button::new(&mut self.src_button, choose_img_icon())
             .on_press(Event::SourcePressed)
             .style(self.theme);
+
+        let mut save_img = Button::new(&mut self.save_button, save_img_icon()).style(self.theme);
+        if self.save_path.is_some() {
+            save_img = save_img.on_press(Event::SavePressed);
+        }
 
         let change_theme = Button::new(&mut self.theme_button, theme_icon(&self.theme))
             .on_press(Event::ThemePressed)
@@ -263,6 +275,7 @@ impl Sandbox for Easel {
             .spacing(5)
             .align_items(Align::Center)
             .push(choose_img)
+            .push(save_img)
             .push(Space::with_width(Length::Fill))
             .push(change_layout)
             .push(change_theme)
@@ -450,12 +463,6 @@ impl Sandbox for Easel {
             Layout::Rows => Length::Fill,
         };
 
-        let mut save_img =
-            Button::new(&mut self.save_button, Text::new("Save image")).style(self.theme);
-        if self.src_path.is_some() {
-            save_img = save_img.on_press(Event::SavePressed);
-        }
-
         let controls = Column::new()
             .spacing(5)
             .align_items(Align::Center)
@@ -464,8 +471,7 @@ impl Sandbox for Easel {
             .push(pixelize)
             .push(kcolors)
             .push(levels)
-            .push(modulate)
-            .push(save_img);
+            .push(modulate);
 
         let image = Container::new(Image::new(self.img_handle.clone()))
             .padding(PADDING)
@@ -556,38 +562,45 @@ impl Easel {
             let img_bytes = (downsize | kmeans | upsize).capture().unwrap().stdout;
 
             *img_handle = ImageHandle::from_memory(img_bytes);
+            self.saved = false;
         }
     }
 }
 
-fn layout_icon(layout: &Layout) -> Text {
-    let icon = match layout {
-        Layout::Columns => '\u{f152}',
-        Layout::Rows => '\u{f151}',
-    };
-
-    Text::new(&icon.to_string())
-        .font(FONT_ICONS)
-        .height(Length::Units(20))
-        .width(Length::Units(20))
-        .horizontal_alignment(HorizontalAlignment::Center)
-        .vertical_alignment(VerticalAlignment::Center)
-        .size(20)
-}
-
-fn theme_icon(theme: &style::Theme) -> Text {
-    let (icon, size) = match theme {
-        style::Theme::Dark => ('\u{e800}', 30),
-        style::Theme::Light => ('\u{e801}', 20),
-    };
-
-    Text::new(&icon.to_string())
+fn icon(unicode: char, size: u16) -> Text {
+    Text::new(&unicode.to_string())
         .font(FONT_ICONS)
         .height(Length::Units(20))
         .width(Length::Units(20))
         .horizontal_alignment(HorizontalAlignment::Center)
         .vertical_alignment(VerticalAlignment::Center)
         .size(size)
+}
+
+fn choose_img_icon() -> Text {
+    icon('\u{e802}', 20)
+}
+
+fn save_img_icon() -> Text {
+    icon('\u{e803}', 20)
+}
+
+fn layout_icon(layout: &Layout) -> Text {
+    let code = match layout {
+        Layout::Columns => '\u{f152}',
+        Layout::Rows => '\u{f151}',
+    };
+
+    icon(code, 20)
+}
+
+fn theme_icon(theme: &style::Theme) -> Text {
+    let (code, size) = match theme {
+        style::Theme::Dark => ('\u{e800}', 30),
+        style::Theme::Light => ('\u{e801}', 20),
+    };
+
+    icon(code, size)
 }
 
 fn main() {
