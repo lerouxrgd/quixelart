@@ -54,6 +54,7 @@ struct Easel {
     modulate_hue_slider: slider::State,
     modulate_hue: u8,
     save_button: button::State,
+    save_as_button: button::State,
     save_path: Option<PathBuf>,
     save_file: Option<PathBuf>,
     saved: bool,
@@ -81,6 +82,7 @@ enum Event {
     SliderModulateHueChanged(u8),
     SliderModulateHueReleased,
     SavePressed,
+    SaveAsPressed,
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +130,7 @@ impl Sandbox for Easel {
             modulate_hue_slider: slider::State::new(),
             modulate_hue: 100,
             save_button: button::State::new(),
+            save_as_button: button::State::new(),
             save_path: None,
             save_file: None,
             saved: false,
@@ -211,8 +214,11 @@ impl Sandbox for Easel {
                     self.make_img();
                 }
             }
-            Event::SavePressed => {
-                if self.save_file.is_none() {
+            Event::SavePressed | Event::SaveAsPressed => {
+                let select_file = (matches!(evt, Event::SavePressed) && self.save_file.is_none())
+                    || matches!(evt, Event::SaveAsPressed);
+
+                if select_file {
                     let default_path = self.save_path.as_ref().map(PathBuf::as_path);
 
                     let save_file = match nfd2::open_save_dialog(None, default_path) {
@@ -258,8 +264,12 @@ impl Sandbox for Easel {
             .style(self.theme);
 
         let mut save_img = Button::new(&mut self.save_button, save_img_icon()).style(self.theme);
+        let mut save_img_as =
+            Button::new(&mut self.save_as_button, save_img_as_icon()).style(self.theme);
+
         if self.save_path.is_some() {
             save_img = save_img.on_press(Event::SavePressed);
+            save_img_as = save_img_as.on_press(Event::SaveAsPressed);
         }
 
         let change_theme = Button::new(&mut self.theme_button, theme_icon(&self.theme))
@@ -275,6 +285,7 @@ impl Sandbox for Easel {
             .spacing(5)
             .align_items(Align::Center)
             .push(choose_img)
+            .push(save_img_as)
             .push(save_img)
             .push(Space::with_width(Length::Fill))
             .push(change_layout)
@@ -583,6 +594,10 @@ fn choose_img_icon() -> Text {
 
 fn save_img_icon() -> Text {
     icon('\u{e803}', 20)
+}
+
+fn save_img_as_icon() -> Text {
+    icon('\u{f1c5}', 20)
 }
 
 fn layout_icon(layout: &Layout) -> Text {
