@@ -1,5 +1,6 @@
 mod style;
 
+use std::env;
 use std::error::Error;
 use std::fs;
 use std::io::prelude::*;
@@ -624,6 +625,14 @@ fn theme_icon(theme: &style::Theme) -> Text {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let args = env::args().collect::<Vec<_>>();
+
+    if args.len() >= 2 && args[1] == "-V" || args[1] == "--version" {
+        let version = option_env!("CARGO_PKG_VERSION").unwrap_or_else(|| ".");
+        println!("v{}", version);
+        return Ok(());
+    }
+
     let mut settings = Settings::default();
 
     settings.default_text_size = 18;
