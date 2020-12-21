@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
+use std::sync::Once;
 
 use iced::image::Handle as ImageHandle;
 use iced::{button, scrollable, slider};
@@ -13,7 +14,9 @@ use iced::{
     Row, Sandbox, Scrollable, Settings, Slider, Space, Text, VerticalAlignment,
 };
 use iced_native::widget::image::Data as ImageData;
-use subprocess::Exec;
+use magick_rust::{bindings as magick, magick_wand_genesis, MagickWand};
+
+static INIT_IMAGE_MAGICK: Once = Once::new();
 
 const FONT_PIXEL: Font = Font::External {
     name: "Pixel",
@@ -536,50 +539,47 @@ impl Easel {
             ..
         } = self;
 
-        if let Some(src_path) = src_path.as_ref().map(PathBuf::as_path) {
-            let mut downsize = Exec::cmd("magick")
-                .arg("convert")
-                .arg(src_path.to_string_lossy().as_ref())
-                .arg("-resize")
-                .arg(format!("{}%", 100 - *pixelize));
+        let src_path = match src_path.as_ref().map(PathBuf::as_path) {
+            Some(src_path) => src_path,
+            None => return,
+        };
 
-            if *level_toggle {
-                downsize = downsize
-                    .arg("-level")
-                    .arg(format!("{}%,{}%", level_black, level_white));
-            }
+        let wand = MagickWand::new();
 
-            if *modulate_toggle {
-                downsize = downsize.arg("-modulate").arg(format!(
-                    "{},{},{}",
-                    modulate_brightness, modulate_saturation, modulate_hue
-                ))
-            }
+        wand.read_image(src_path.to_string_lossy().as_ref()).ok();
+        let width = wand.get_image_width();
+        let height = wand.get_image_height();
 
-            downsize = downsize.arg("-");
+        let downsize = (100.0 - *pixelize as f64) / 100.0;
+        let width_ds = ((width as f64) * downsize).round() as usize;
+        let height_ds = ((height as f64) * downsize).round() as usize;
+        wand.resize_image(width_ds, height_ds, magick::FilterType_UndefinedFilter);
 
-            let kmeans = Exec::cmd("magick")
-                .arg("-")
-                .arg("-kmeans")
-                .arg(kcolors.to_string())
-                .arg("-");
+        if *level_toggle {
+            wand.level_image(
+                *level_black as f64 / 100.0,
+                1.0,
+                *level_white as f64 / 100.0,
+            )
+            .ok();
+        }
 
-            let upsize = Exec::cmd("magick")
-                .arg("convert")
-                .arg("-")
-                .arg("-filter")
-                .arg("point")
-                .arg("-resize")
-                .arg(format!("{}%", 1.0 / (100 - *pixelize) as f32 * 10_000.0))
-                .arg("-");
+        if *modulate_toggle {
+            wand.modulate_image(
+                *modulate_brightness as f64,
+                *modulate_saturation as f64,
+                *modulate_hue as f64,
+            )
+            .ok();
+        }
 
-            let pipeline = (downsize | kmeans | upsize).capture();
+        wand.kmeans(*kcolors as usize, 100, 0.01).ok();
 
-            if let Ok(pipeline) = pipeline {
-                let img_bytes = pipeline.stdout;
-                *img_handle = ImageHandle::from_memory(img_bytes);
-                *saved = false;
-            }
+        wand.resize_image(width, height, magick::FilterType_PointFilter);
+
+        if let Ok(img_bytes) = wand.write_image_blob("png") {
+            *img_handle = ImageHandle::from_memory(img_bytes);
+            *saved = false;
         }
     }
 }
@@ -627,16 +627,18 @@ fn theme_icon(theme: &style::Theme) -> Text {
 fn main() -> Result<(), Box<dyn Error>> {
     let args = env::args().collect::<Vec<_>>();
 
-    if args.len() >= 2 && args[1] == "-V" || args[1] == "--version" {
+    if args.len() >= 2 && (args[1] == "-V" || args[1] == "--version") {
         let version = option_env!("CARGO_PKG_VERSION").unwrap_or_else(|| ".");
         println!("v{}", version);
         return Ok(());
     }
 
+    INIT_IMAGE_MAGICK.call_once(|| {
+        magick_wand_genesis();
+    });
+
     let mut settings = Settings::default();
-
     settings.default_text_size = 18;
-
     if let Font::External { bytes, .. } = FONT_PIXEL {
         settings.default_font = Some(bytes);
     }
