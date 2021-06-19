@@ -161,10 +161,10 @@ impl Sandbox for Easel {
                 self.theme.swap();
             }
             Event::SourcePressed => {
-                let file_path = match nfd2::open_file_dialog(None, None) {
-                    Ok(nfd2::Response::Okay(file_path)) => Some(file_path),
-                    _ => None,
-                };
+                let file_path = rfd::FileDialog::new()
+                    // .add_filter("rust", &["rs", "toml"])
+                    // .set_directory(&path)
+                    .pick_file();
                 self.src_path = file_path.clone();
 
                 if let Some(mut file_path) = file_path {
@@ -226,10 +226,11 @@ impl Sandbox for Easel {
                 if select_file {
                     let default_path = self.save_path.as_ref().map(PathBuf::as_path);
 
-                    let save_file = match nfd2::open_save_dialog(None, default_path) {
-                        Ok(nfd2::Response::Okay(file_path)) => Some(file_path),
-                        _ => None,
-                    };
+                    let mut save_file = rfd::FileDialog::new();
+                    if let Some(default_path) = default_path {
+                        save_file = save_file.set_directory(default_path);
+                    }
+                    let save_file = save_file.save_file();
 
                     save_file.as_ref().map(|f| {
                         let mut save_path = f.clone();

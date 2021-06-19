@@ -9,4 +9,4 @@ iced = { version = "0.2", features = ["image"] }
 iced_native = "0.3"
 # magick_rust = "0.14"
 magick_rust = { git = "https://github.com/nlfiedler/magick-rust.git", rev = "7d233633a9684eefb4e9be38523e107c468842e4" }
-nfd2 = "0.2"
+rfd = "0.4"
